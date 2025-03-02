@@ -6,6 +6,7 @@
       <router-link to="/parts">Parts</router-link> |
       <router-link to="/tasks">Tasks</router-link> |
       <router-link to="/schedules">Schedules</router-link>
+      <router-link to="/dashboard">Dashboard</router-link>
     </nav>
     <router-view />
   </div>
