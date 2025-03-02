@@ -52,18 +52,27 @@ export default {
   name: 'PartsPage',
   data() {
     return {
-      parts: []
+      parts: [],
+      csrfToken: null
     }
   },
   mounted() {
-    this.fetchParts()
+    this.fetchCsrfToken().then(() => this.fetchParts())
   },
   methods: {
+    async fetchCsrfToken() {
+      try {
+        await axios.get('http://localhost:8000/api/parts/', { withCredentials: true }) // No 'response' needed
+        this.csrfToken = this.getCsrfToken()
+      } catch (error) {
+        console.error('Error fetching CSRF token:', error)
+      }
+    },
     fetchParts() {
-      axios.get('http://127.0.0.1:8000/api/parts/', {
+      axios.get('http://localhost:8000/api/parts/', {
         withCredentials: true,
         headers: {
-          'X-CSRFToken': this.getCsrfToken()
+          'X-CSRFToken': this.csrfToken
         }
       })
         .then(response => {

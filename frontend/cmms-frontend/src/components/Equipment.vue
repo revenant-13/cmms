@@ -30,25 +30,34 @@
     }
   </style>
   
-  <script>
+<script>
 import axios from 'axios'
 
 export default {
   name: 'EquipmentPage',
   data() {
     return {
-      equipment: []
+      equipment: [],
+      csrfToken: null
     }
   },
   mounted() {
-    this.fetchEquipment()
+    this.fetchCsrfToken().then(() => this.fetchEquipment())
   },
   methods: {
+    async fetchCsrfToken() {
+      try {
+        await axios.get('http://localhost:8000/api/equipment/', { withCredentials: true }) // No 'response' needed
+        this.csrfToken = this.getCsrfToken()
+      } catch (error) {
+        console.error('Error fetching CSRF token:', error)
+      }
+    },
     fetchEquipment() {
-      axios.get('http://127.0.0.1:8000/api/equipment/', {
+      axios.get('http://localhost:8000/api/equipment/', {
         withCredentials: true,
         headers: {
-          'X-CSRFToken': this.getCsrfToken()
+          'X-CSRFToken': this.csrfToken
         }
       })
         .then(response => {
