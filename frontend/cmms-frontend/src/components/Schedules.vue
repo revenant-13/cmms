@@ -1,7 +1,7 @@
 <template>
   <div class="schedules">
     <h1>Schedules</h1>
-    <table>
+    <table v-if="schedules.length">
       <thead>
         <tr>
           <th>Task</th>
@@ -11,12 +11,13 @@
       </thead>
       <tbody>
         <tr v-for="schedule in schedules" :key="schedule.id">
-          <td>{{ schedule.task }}</td>
+          <td>{{ schedule.task.description }}</td>
           <td>{{ schedule.due_date }}</td>
           <td>{{ schedule.status }}</td>
         </tr>
       </tbody>
     </table>
+    <p v-else>Loading schedules...</p>
   </div>
 </template>
 
@@ -45,14 +46,56 @@
 </style>
 
 <script>
+import axios from 'axios'
+
 export default {
   name: 'SchedulesPage',
   data() {
     return {
-      schedules: [
-        { id: 1, task: 'Oil Change', due_date: '2025-03-03', status: 'pending' },
-        { id: 2, task: 'Replace Capacitor', due_date: '2025-03-06', status: 'completed' }
-      ]
+      schedules: [],
+      csrfToken: null
+    }
+  },
+  mounted() {
+    this.fetchCsrfToken().then(() => this.fetchSchedules())
+  },
+  methods: {
+    async fetchCsrfToken() {
+      try {
+        await axios.get('http://localhost:8000/api/schedules/', { withCredentials: true })
+        this.csrfToken = this.getCsrfToken()
+      } catch (error) {
+        console.error('Error fetching CSRF token:', error)
+      }
+    },
+    fetchSchedules() {
+      axios.get('http://localhost:8000/api/schedules/', {
+        withCredentials: true,
+        headers: {
+          'X-CSRFToken': this.csrfToken
+        }
+      })
+        .then(response => {
+          this.schedules = response.data
+        })
+        .catch(error => {
+          console.error('Error fetching schedules:', error)
+        })
+    },
+    getCsrfToken() {
+      const name = 'csrftoken'
+      let cookieValue = null
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';')
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim()
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1))
+            break
+          }
+        }
+      }
+      return cookieValue
     }
   }
 }
