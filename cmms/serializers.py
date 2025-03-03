@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Vendor, Equipment, Part, Task, Schedule
-from django.contrib.auth.models import User
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -30,7 +29,7 @@ class EquipmentSerializer(serializers.ModelSerializer):
         return EquipmentSerializer(children, many=True).data
 
 class PartSerializer(serializers.ModelSerializer):
-    equipment = serializers.PrimaryKeyRelatedField(queryset=Equipment.objects.all())
+    equipment = EquipmentSerializer(read_only=True)  # Nest full equipment details
     vendor = VendorSerializer(read_only=True)
 
     class Meta:

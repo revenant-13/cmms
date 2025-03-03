@@ -81,6 +81,8 @@ class Part(models.Model):
     equipment = models.ForeignKey(
         Equipment,
         on_delete=models.CASCADE,
+        null=True,  # Allow null in database
+        blank=True,  # Allow blank in forms
         related_name='parts'
     )
     vendor = models.ForeignKey(

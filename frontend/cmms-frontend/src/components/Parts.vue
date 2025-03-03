@@ -13,7 +13,7 @@
         <tr v-for="part in parts" :key="part.id">
           <td>{{ part.part_number }}</td>
           <td>{{ part.status }}</td>
-          <td>{{ part.equipment.name }}</td>
+          <td>{{ part.equipment ? part.equipment.name : 'None' }}</td>
         </tr>
       </tbody>
     </table>
@@ -62,7 +62,7 @@ export default {
   methods: {
     async fetchCsrfToken() {
       try {
-        await axios.get('http://localhost:8000/api/parts/', { withCredentials: true }) // No 'response' needed
+        await axios.get('http://localhost:8000/api/parts/', { withCredentials: true })
         this.csrfToken = this.getCsrfToken()
       } catch (error) {
         console.error('Error fetching CSRF token:', error)
