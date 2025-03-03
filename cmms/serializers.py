@@ -2,6 +2,12 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Vendor, Equipment, Part, Task, Schedule
 
+# Custom RecursiveField for self-referential serializers
+class RecursiveField(serializers.Serializer):
+    def to_representation(self, value):
+        serializer = self.parent.parent.__class__(value, context=self.context)
+        return serializer.data
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -13,20 +19,27 @@ class VendorSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'contact_info', 'address', 'is_active']
 
 class EquipmentSerializer(serializers.ModelSerializer):
-    vendor = VendorSerializer(read_only=True)  # Service vendor
+    vendor = VendorSerializer(read_only=True)
+    parent = serializers.PrimaryKeyRelatedField(
+        queryset=Equipment.objects.all(),
+        allow_null=True,
+        required=False
+    )
+    parent_details = RecursiveField(read_only=True)  # Use our custom RecursiveField
     manufacturer = serializers.PrimaryKeyRelatedField(
         queryset=Vendor.objects.all(),
         allow_null=True,
         required=False
-    )  # Writable manufacturer ID
-    manufacturer_details = VendorSerializer(source='manufacturer', read_only=True)  # Nested manufacturer data
+    )
+    manufacturer_details = VendorSerializer(source='manufacturer', read_only=True)
     children = serializers.SerializerMethodField()
 
     class Meta:
         model = Equipment
         fields = [
-            'id', 'name', 'model', 'serial', 'description', 'parent', 'location_status',
-            'expected_return_date', 'vendor', 'manufacturer', 'manufacturer_details', 'is_active', 'children'
+            'id', 'name', 'model', 'serial', 'description', 'parent', 'parent_details',
+            'location_status', 'expected_return_date', 'vendor', 'manufacturer',
+            'manufacturer_details', 'is_active', 'children'
         ]
 
     def get_children(self, obj):

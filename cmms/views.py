@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User
 from rest_framework import generics, permissions
-from rest_framework.exceptions import ValidationError  # Add this
-from mptt.exceptions import InvalidMove  # Add this
+from rest_framework.exceptions import ValidationError
+from mptt.exceptions import InvalidMove
 from .models import Vendor, Equipment, Part, Task, Schedule
 from .serializers import (
     VendorSerializer, EquipmentSerializer, PartSerializer,
@@ -24,7 +24,7 @@ class VendorDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.DjangoModelPermissions]
 
 class EquipmentListCreateView(generics.ListCreateAPIView):
-    queryset = Equipment.objects.filter(is_active=True)
+    queryset = Equipment.objects.filter(parent__isnull=True)
     serializer_class = EquipmentSerializer
     permission_classes = [permissions.DjangoModelPermissions]
 
@@ -39,6 +39,10 @@ class EquipmentDetailView(generics.RetrieveUpdateDestroyAPIView):
         except InvalidMove:
             raise ValidationError({"detail": "Cannot set this equipment as a child of its own descendant."})
 
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        instance.rebuild()  # Rebuild MPTT tree after update
+
 class PartListCreateView(generics.ListCreateAPIView):
     queryset = Part.objects.filter(is_active=True)
     serializer_class = PartSerializer
@@ -50,7 +54,7 @@ class PartDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.DjangoModelPermissions]
 
 class TaskListCreateView(generics.ListCreateAPIView):
-    queryset = Task.objects.all()  # No is_active filter since tasks are tied to equipment
+    queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [permissions.DjangoModelPermissions]
 

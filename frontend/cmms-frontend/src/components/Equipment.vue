@@ -1,8 +1,19 @@
 <template>
   <div class="equipment">
     <h1>Equipment Hierarchy</h1>
-    <div class="search">
-      <input v-model="searchQuery" placeholder="Search equipment by name" @input="filterEquipment" id="search" name="search" />
+    <div class="filters">
+      <input v-model="searchQuery" placeholder="Search by Name" @input="filterEquipment" />
+      <select v-model="filterLocation" @change="filterEquipment">
+        <option value="">All Locations</option>
+        <option value="in-house">In-House</option>
+        <option value="off-site">Off-Site</option>
+      </select>
+      <select v-model="filterManufacturer" @change="filterEquipment">
+        <option value="">All Manufacturers</option>
+        <option v-for="vendor in vendorList" :key="vendor.id" :value="vendor.id">
+          {{ vendor.name }}
+        </option>
+      </select>
     </div>
     <div class="form">
       <h2>{{ editingEquipment ? 'Edit Equipment' : 'Add New Equipment' }}</h2>
@@ -33,97 +44,85 @@
       </form>
     </div>
     <ul v-if="filteredEquipment.length">
-      <li v-for="item in filteredEquipment" :key="item.id">
-        {{ item.name }} (Model: {{ item.model }}) {{ item.serial }} - {{ item.description || 'No description' }}
-        <button @click="editEquipment(item)">Edit</button>
-        <button @click="deleteEquipment(item.id)" class="delete-btn">Delete</button>
-        <ul v-if="item.children && item.children.length">
-          <li v-for="child in item.children" :key="child.id">
-            {{ child.name }} (Model: {{ child.model }}) {{ child.serial }} - {{ child.description || 'No description' }}
-            <button @click="editEquipment(child)">Edit</button>
-            <button @click="deleteEquipment(child.id)" class="delete-btn">Delete</button>
-          </li>
-        </ul>
-      </li>
+      <equipment-node v-for="item in filteredEquipment" :key="item.id" :item="item" @edit="editEquipment" @delete="deleteEquipment" />
     </ul>
     <p v-else>No equipment found</p>
   </div>
 </template>
 
 <style scoped>
-  .equipment {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-  .search, .form {
-    margin-bottom: 20px;
-    padding: 15px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-  }
-  .search input, .form input, .form select, .form textarea {
-    width: 100%;
-    padding: 8px;
-    margin: 5px 0;
-    box-sizing: border-box;
-  }
-  .form textarea {
-    height: 100px;
-  }
-  .form button {
-    background-color: #42b983;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    margin: 5px 5px 0 0;
-    cursor: pointer;
-  }
-  .form button:hover {
-    background-color: #2c3e50;
-  }
-  .error {
-    color: red;
-    margin-bottom: 10px;
-  }
-  ul {
-    list-style-type: none;
-    padding-left: 20px;
-  }
-  li {
-    margin: 5px 0;
-  }
-  li button {
-    margin-left: 10px;
-    background-color: #42b983;
-    color: white;
-    border: none;
-    padding: 3px 8px;
-    cursor: pointer;
-  }
-  li button:hover {
-    background-color: #2c3e50;
-  }
-  .delete-btn {
-    background-color: #e74c3c;
-  }
-  .delete-btn:hover {
-    background-color: #c0392b;
-  }
+.equipment {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+}
+.filters {
+  margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
+}
+.filters input, .filters select {
+  padding: 8px;
+  width: 200px;
+}
+.form {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+input, select, textarea, button {
+  width: 100%;
+  padding: 8px;
+  margin: 5px 0;
+  box-sizing: border-box;
+}
+textarea {
+  height: 100px;
+}
+button {
+  background-color: #42b983;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  margin: 5px 5px 0 0;
+  cursor: pointer;
+}
+button:hover {
+  background-color: #2c3e50;
+}
+.error {
+  color: red;
+  margin-bottom: 10px;
+}
+ul {
+  list-style-type: none;
+  padding-left: 20px;
+}
+li {
+  margin: 5px 0;
+}
 </style>
 
 <script>
 import axios from 'axios'
+import { reactive } from 'vue'
+import EquipmentNode from './EquipmentNode.vue'
 
 export default {
   name: 'EquipmentPage',
-  data() {
-    return {
+  components: {
+    EquipmentNode
+  },
+  setup() {
+    const state = reactive({
       equipment: [],
       filteredEquipment: [],
       vendorList: [],
       csrfToken: null,
       searchQuery: '',
+      filterLocation: '',
+      filterManufacturer: '',
       newEquipment: {
         name: '',
         model: '',
@@ -135,7 +134,9 @@ export default {
       },
       editingEquipment: null,
       errorMessage: ''
-    }
+    })
+
+    return state
   },
   computed: {
     flattenedEquipment() {
@@ -177,8 +178,20 @@ export default {
         headers: { 'X-CSRFToken': this.csrfToken }
       })
         .then(response => {
-          this.equipment = response.data
-          this.filteredEquipment = response.data.filter(item => !item.parent)
+          console.log('Fetched equipment:', response.data)
+          this.equipment = response.data.filter(item => item.is_active)
+          this.filteredEquipment = this.equipment.filter(item => !item.parent)
+          console.log('Initial filteredEquipment:', this.filteredEquipment)
+          console.log('Initial filteredEquipment children check:', this.filteredEquipment.map(item => ({
+            id: item.id,
+            name: item.name,
+            children: item.children ? item.children.map(child => ({
+              id: child.id,
+              name: child.name,
+              parent: child.parent,
+              children: child.children ? child.children.length : 0
+            })) : []
+          })))
           this.filterEquipment()
         })
         .catch(error => {
@@ -199,40 +212,45 @@ export default {
     },
     filterEquipment() {
       const query = this.searchQuery.toLowerCase()
-      if (!query) {
-        this.filteredEquipment = this.equipment.filter(item => !item.parent)
-        return
-      }
       const filterRecursive = (items) => {
         return items.map(item => {
-          const matches = item.name.toLowerCase().includes(query)
-          const filteredChildren = item.children && item.children.length ? filterRecursive(item.children) : []
-          if ((matches && !item.parent) || filteredChildren.length) {
-            return { ...item, children: filteredChildren }
+          const matchesName = query ? item.name.toLowerCase().includes(query) : true
+          const matchesLocation = this.filterLocation ? item.location_status === this.filterLocation : true
+          const matchesManufacturer = this.filterManufacturer ? 
+            (item.manufacturer && item.manufacturer.id === parseInt(this.filterManufacturer)) : true
+          const itemMatches = matchesName && matchesLocation && matchesManufacturer
+          let filteredChildren = []
+          if (item.children && item.children.length) {
+            filteredChildren = filterRecursive(item.children)
+            item.children = filteredChildren
+          }
+          if (itemMatches || filteredChildren.length > 0) {
+            return { ...item }
           }
           return null
         }).filter(item => item !== null)
       }
-      this.filteredEquipment = filterRecursive(this.equipment)
+      this.filteredEquipment = filterRecursive(this.equipment.filter(item => !item.parent))
+      console.log('Filtered equipment after filter:', this.filteredEquipment)
     },
     async saveEquipment() {
       try {
         await this.fetchCsrfToken()
         const equipmentData = { ...this.newEquipment }
         console.log('Sending equipment data:', equipmentData)
-        if (!equipmentData.parent) delete equipmentData.parent
-        if (!equipmentData.manufacturer) delete equipmentData.manufacturer
-
+        let response
         if (this.editingEquipment) {
-          await axios.put(`http://localhost:8000/api/equipment/${this.editingEquipment.id}/`, equipmentData, {
+          response = await axios.put(`http://localhost:8000/api/equipment/${this.editingEquipment.id}/`, equipmentData, {
             withCredentials: true,
             headers: { 'X-CSRFToken': this.csrfToken }
           })
+          console.log('PUT response:', response.data)
         } else {
-          await axios.post('http://localhost:8000/api/equipment/', equipmentData, {
+          response = await axios.post('http://localhost:8000/api/equipment/', equipmentData, {
             withCredentials: true,
             headers: { 'X-CSRFToken': this.csrfToken }
           })
+          console.log('POST response:', response.data)
         }
         this.fetchEquipment()
         this.resetForm()

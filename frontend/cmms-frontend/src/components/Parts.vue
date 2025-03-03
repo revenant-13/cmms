@@ -1,6 +1,21 @@
 <template>
   <div class="parts">
     <h1>Parts Inventory</h1>
+    <div class="filters">
+      <input v-model="filterPartNumber" placeholder="Filter by Part Number" @input="applyFilters" />
+      <select v-model="filterStatus" @change="applyFilters">
+        <option value="">All Statuses</option>
+        <option value="Available">Available</option>
+        <option value="Active">Active</option>
+        <option value="Inactive">Inactive</option>
+      </select>
+      <select v-model="filterSupplier" @change="applyFilters">
+        <option value="">All Suppliers</option>
+        <option v-for="vendor in vendorList" :key="vendor.id" :value="vendor.id">
+          {{ vendor.name }}
+        </option>
+      </select>
+    </div>
     <div class="form">
       <h2>{{ editingPart ? 'Edit Part' : 'Add New Part' }}</h2>
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
@@ -23,7 +38,7 @@
         <button v-if="editingPart" type="button" @click="cancelEdit">Cancel</button>
       </form>
     </div>
-    <table v-if="parts.length">
+    <table v-if="filteredParts.length">
       <thead>
         <tr>
           <th>Part Number</th>
@@ -36,7 +51,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="part in parts" :key="part.id">
+        <tr v-for="part in filteredParts" :key="part.id">
           <td>{{ part.part_number }}</td>
           <td>{{ part.part_name }}</td>
           <td>{{ part.description || 'N/A' }}</td>
@@ -50,7 +65,7 @@
         </tr>
       </tbody>
     </table>
-    <p v-else>Loading parts...</p>
+    <p v-else>No parts found</p>
   </div>
 </template>
 
@@ -59,6 +74,15 @@
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
+  }
+  .filters {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+  }
+  .filters input, .filters select {
+    padding: 8px;
+    width: 200px;
   }
   .form {
     margin-bottom: 20px;
@@ -124,9 +148,13 @@ export default {
   data() {
     return {
       parts: [],
+      filteredParts: [],
       equipmentList: [],
       vendorList: [],
       csrfToken: null,
+      filterPartNumber: '',
+      filterStatus: '',
+      filterSupplier: '',
       newPart: {
         part_number: '',
         part_name: '',
@@ -162,6 +190,7 @@ export default {
       })
         .then(response => {
           this.parts = response.data
+          this.applyFilters()
         })
         .catch(error => {
           console.error('Error fetching parts:', error)
@@ -190,6 +219,17 @@ export default {
         .catch(error => {
           console.error('Error fetching vendors:', error)
         })
+    },
+    applyFilters() {
+      this.filteredParts = this.parts.filter(part => {
+        const matchesPartNumber = this.filterPartNumber ? 
+          part.part_number.toLowerCase().includes(this.filterPartNumber.toLowerCase()) : true
+        const matchesStatus = this.filterStatus ? 
+          part.status === this.filterStatus : true
+        const matchesSupplier = this.filterSupplier ? 
+          part.supplier_details && part.supplier_details.some(v => v.id === parseInt(this.filterSupplier)) : true
+        return matchesPartNumber && matchesStatus && matchesSupplier
+      })
     },
     async savePart() {
       this.errorMessage = ''
