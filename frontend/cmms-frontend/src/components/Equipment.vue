@@ -1,16 +1,13 @@
 <template>
   <div class="equipment">
-    <h1>Equipment Hierarchy</h1>
-    <filter-controls
-      v-model:search-query="searchQuery"
-      v-model:filter-location="filterLocation"
-      v-model:filter-manufacturer="filterManufacturer"
-      :vendors="vendorList"
-      @update:search-query="filterEquipment"
-      @update:filter-location="filterEquipment"
-      @update:filter-manufacturer="filterEquipment"
-    />
+    <div class="header">
+      <h1>Equipment Hierarchy</h1>
+      <button @click="toggleForm" class="toggle-btn">
+        {{ showForm ? 'Hide Form' : 'Add Equipment' }}
+      </button>
+    </div>
     <equipment-form
+      v-if="showForm"
       :equipment="editingEquipment"
       :equipment-list="flattenedEquipment"
       :vendor-list="vendorList"
@@ -18,7 +15,18 @@
       @save="saveEquipment"
       @cancel="cancelEdit"
     />
-    <ul v-if="filteredEquipment.length">
+    <div class="controls">
+      <filter-controls
+        v-model:search-query="searchQuery"
+        v-model:filter-location="filterLocation"
+        v-model:filter-manufacturer="filterManufacturer"
+        :vendors="vendorList"
+        @update:search-query="filterEquipment"
+        @update:filter-location="filterEquipment"
+        @update:filter-manufacturer="filterEquipment"
+      />
+    </div>
+    <ul v-if="filteredEquipment.length" class="equipment-list">
       <equipment-node v-for="item in filteredEquipment" :key="item.id" :item="item" @edit="editEquipment" @delete="deleteEquipment" />
     </ul>
     <p v-else>No equipment found</p>
@@ -29,14 +37,44 @@
 .equipment {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 10px;
 }
-ul {
+.header {
+  display: flex;
+  justify-content: center; /* Center the entire header content */
+  align-items: center;
+  margin-bottom: 10px;
+  position: relative; /* Allow absolute positioning of button */
+}
+.header h1 {
+  margin: 0;
+  font-size: 1.5em;
+  text-align: center; /* Ensure text is centered */
+}
+.toggle-btn {
+  background-color: #42b983;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  position: absolute; /* Position button on the right */
+  right: 0;
+}
+.toggle-btn:hover {
+  background-color: #2c3e50;
+}
+.controls {
+  display: flex;
+  justify-content: center; /* Center the filter controls */
+  margin-bottom: 10px;
+}
+.equipment-list {
   list-style-type: none;
-  padding-left: 20px;
+  padding-left: 10px;
 }
-li {
-  margin: 5px 0;
+.equipment-list li {
+  margin: 2px 0;
 }
 </style>
 
@@ -73,7 +111,8 @@ export default {
         manufacturer: ''
       },
       editingEquipment: null,
-      errorMessage: ''
+      errorMessage: '',
+      showForm: false
     })
 
     return state
@@ -170,6 +209,7 @@ export default {
         const response = await saveData('equipment', dataToSend, this.csrfToken, isEdit)
         console.log('Response:', response)
         this.fetchEquipment()
+        this.showForm = false
         this.resetForm()
       } catch (error) {
         console.error('Save equipment failed:', error)
@@ -191,9 +231,11 @@ export default {
       console.log('Editing item:', item)
       this.editingEquipment = { ...item }
       console.log('After editEquipment, editingEquipment set to:', this.editingEquipment)
+      this.showForm = true
     },
     cancelEdit() {
       this.resetForm()
+      this.showForm = false
     },
     resetForm() {
       console.log('Resetting form')
@@ -208,6 +250,14 @@ export default {
       }
       this.editingEquipment = null
       this.errorMessage = ''
+    },
+    toggleForm() {
+      this.showForm = !this.showForm
+      if (!this.showForm) {
+        this.resetForm()
+      } else if (!this.editingEquipment) {
+        this.resetForm()
+      }
     }
   }
 }
