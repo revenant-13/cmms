@@ -6,10 +6,17 @@
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
       <form @submit.prevent="savePart">
         <input v-model="newPart.part_number" placeholder="Part Number" required />
+        <input v-model="newPart.part_name" placeholder="Part Name" required />
+        <textarea v-model="newPart.description" placeholder="Description"></textarea>
         <input v-model="newPart.status" placeholder="Status" required />
         <select v-model="newPart.equipment" multiple>
           <option v-for="equip in equipmentList" :key="equip.id" :value="equip.id">
             {{ equip.name }}
+          </option>
+        </select>
+        <select v-model="newPart.suppliers" multiple>
+          <option v-for="vendor in vendorList" :key="vendor.id" :value="vendor.id">
+            {{ vendor.name }}
           </option>
         </select>
         <button type="submit">{{ editingPart ? 'Update' : 'Add' }}</button>
@@ -20,16 +27,22 @@
       <thead>
         <tr>
           <th>Part Number</th>
+          <th>Part Name</th>
+          <th>Description</th>
           <th>Status</th>
           <th>Equipment</th>
+          <th>Suppliers</th>
           <th>Action</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="part in parts" :key="part.id">
           <td>{{ part.part_number }}</td>
+          <td>{{ part.part_name }}</td>
+          <td>{{ part.description || 'N/A' }}</td>
           <td>{{ part.status }}</td>
           <td>{{ part.equipment_details && part.equipment_details.length ? part.equipment_details.map(e => e.name).join(', ') : 'None' }}</td>
+          <td>{{ part.supplier_details && part.supplier_details.length ? part.supplier_details.map(v => v.name).join(', ') : 'None' }}</td>
           <td><button @click="editPart(part)">Edit</button></td>
         </tr>
       </tbody>
@@ -40,7 +53,7 @@
 
 <style scoped>
   .parts {
-    max-width: 1000px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
   }
@@ -50,11 +63,14 @@
     border: 1px solid #ddd;
     border-radius: 5px;
   }
-  input, select, button {
+  input, select, textarea, button {
     margin: 5px 0;
     padding: 8px;
     width: 100%;
     box-sizing: border-box;
+  }
+  textarea {
+    height: 100px;
   }
   select[multiple] {
     height: 100px;
@@ -99,11 +115,15 @@ export default {
     return {
       parts: [],
       equipmentList: [],
+      vendorList: [],
       csrfToken: null,
       newPart: {
         part_number: '',
+        part_name: '',
+        description: '',
         status: '',
-        equipment: []
+        equipment: [],
+        suppliers: []
       },
       editingPart: null,
       errorMessage: ''
@@ -112,6 +132,7 @@ export default {
   mounted() {
     this.fetchCsrfToken().then(() => {
       this.fetchEquipment()
+      this.fetchVendors()
       this.fetchParts()
     })
   },
@@ -148,6 +169,18 @@ export default {
           console.error('Error fetching equipment:', error)
         })
     },
+    fetchVendors() {
+      axios.get('http://localhost:8000/api/vendors/', {
+        withCredentials: true,
+        headers: { 'X-CSRFToken': this.csrfToken }
+      })
+        .then(response => {
+          this.vendorList = response.data
+        })
+        .catch(error => {
+          console.error('Error fetching vendors:', error)
+        })
+    },
     async savePart() {
       this.errorMessage = ''
       try {
@@ -155,6 +188,7 @@ export default {
         const partData = { ...this.newPart }
         console.log('Sending part data:', partData)
         if (!partData.equipment.length) delete partData.equipment
+        if (!partData.suppliers.length) delete partData.suppliers
 
         if (this.editingPart) {
           const response = await axios.put(`http://localhost:8000/api/parts/${this.editingPart.id}/`, partData, {
@@ -188,12 +222,15 @@ export default {
       this.editingPart = part
       this.newPart = {
         part_number: part.part_number,
+        part_name: part.part_name,
+        description: part.description || '',
         status: part.status,
-        equipment: part.equipment_details ? part.equipment_details.map(e => e.id) : []
+        equipment: part.equipment_details ? part.equipment_details.map(e => e.id) : [],
+        suppliers: part.supplier_details ? part.supplier_details.map(v => v.id) : []
       }
     },
     resetForm() {
-      this.newPart = { part_number: '', status: '', equipment: [] }
+      this.newPart = { part_number: '', part_name: '', description: '', status: '', equipment: [], suppliers: [] }
       this.editingPart = null
       this.errorMessage = ''
     },

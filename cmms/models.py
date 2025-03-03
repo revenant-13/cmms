@@ -76,6 +76,8 @@ class Equipment(MPTTModel):
 
 class Part(models.Model):
     part_number = models.CharField(max_length=255)
+    part_name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=50)
     last_updated = models.DateTimeField(auto_now=True)
     equipment = models.ManyToManyField(
@@ -83,6 +85,16 @@ class Part(models.Model):
         blank=True,  # Allow no equipment
         related_name='parts'
     )
+    suppliers = models.ManyToManyField(  # New multi-select field
+        Vendor,
+        blank=True,
+        related_name='supplied_parts'
+    )
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.part_name
+    
     vendor = models.ForeignKey(
         Vendor,
         on_delete=models.SET_NULL,

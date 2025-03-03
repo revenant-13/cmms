@@ -31,18 +31,23 @@ class EquipmentSerializer(serializers.ModelSerializer):
 class PartSerializer(serializers.ModelSerializer):
     equipment = serializers.PrimaryKeyRelatedField(
         queryset=Equipment.objects.all(),
-        many=True,  # Accept multiple IDs
+        many=True,
         allow_null=True,
         required=False
     )
     equipment_details = EquipmentSerializer(source='equipment', many=True, read_only=True)
-    vendor = VendorSerializer(read_only=True)
-
+    suppliers = serializers.PrimaryKeyRelatedField(
+        queryset=Vendor.objects.all(),
+        many=True,
+        allow_null=True,
+        required=False
+    )
+    supplier_details = VendorSerializer(source='suppliers', many=True, read_only=True)
     class Meta:
         model = Part
         fields = [
-            'id', 'part_number', 'status', 'last_updated',
-            'equipment', 'equipment_details', 'vendor', 'is_active'
+            'id', 'part_number', 'part_name', 'description', 'status', 'last_updated',
+            'equipment', 'equipment_details', 'suppliers', 'supplier_details', 'is_active'
         ]
 
 class TaskSerializer(serializers.ModelSerializer):
