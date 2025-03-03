@@ -29,14 +29,20 @@ class EquipmentSerializer(serializers.ModelSerializer):
         return EquipmentSerializer(children, many=True).data
 
 class PartSerializer(serializers.ModelSerializer):
-    equipment = EquipmentSerializer(read_only=True)  # Nest full equipment details
+    equipment = serializers.PrimaryKeyRelatedField(
+        queryset=Equipment.objects.all(),
+        many=True,  # Accept multiple IDs
+        allow_null=True,
+        required=False
+    )
+    equipment_details = EquipmentSerializer(source='equipment', many=True, read_only=True)
     vendor = VendorSerializer(read_only=True)
 
     class Meta:
         model = Part
         fields = [
             'id', 'part_number', 'status', 'last_updated',
-            'equipment', 'vendor', 'is_active'
+            'equipment', 'equipment_details', 'vendor', 'is_active'
         ]
 
 class TaskSerializer(serializers.ModelSerializer):

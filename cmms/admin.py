@@ -14,8 +14,13 @@ class EquipmentAdmin(admin.ModelAdmin):
 
 @admin.register(Part)
 class PartAdmin(admin.ModelAdmin):
-    list_display = ('part_number', 'status', 'equipment', 'is_active')
+    list_display = ('part_number', 'status', 'get_equipment', 'is_active')
     list_filter = ('is_active',)
+
+    def get_equipment(self, obj):
+        # Display a comma-separated list of equipment names
+        return ', '.join(equip.name for equip in obj.equipment.all()) if obj.equipment.exists() else 'None'
+    get_equipment.short_description = 'Equipment'
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):

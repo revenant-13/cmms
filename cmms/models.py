@@ -78,11 +78,9 @@ class Part(models.Model):
     part_number = models.CharField(max_length=255)
     status = models.CharField(max_length=50)
     last_updated = models.DateTimeField(auto_now=True)
-    equipment = models.ForeignKey(
+    equipment = models.ManyToManyField(
         Equipment,
-        on_delete=models.CASCADE,
-        null=True,  # Allow null in database
-        blank=True,  # Allow blank in forms
+        blank=True,  # Allow no equipment
         related_name='parts'
     )
     vendor = models.ForeignKey(
