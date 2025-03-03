@@ -46,6 +46,7 @@ class Equipment(MPTTModel):
     name = models.CharField(max_length=255)
     model = models.CharField(max_length=255)
     serial = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)  # New optional field
     parent = TreeForeignKey(
         'self',
         on_delete=models.CASCADE,
@@ -55,7 +56,7 @@ class Equipment(MPTTModel):
     )
     location_status = models.CharField(
         max_length=50,
-        choices=EQUIPMENT_LOCATION_STATUS,  # Updated name to match convention
+        choices=EQUIPMENT_LOCATION_STATUS,
         default='in-house'
     )
     expected_return_date = models.DateField(null=True, blank=True)
@@ -64,7 +65,14 @@ class Equipment(MPTTModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='equipment'
+        related_name='equipment_serviced'
+    )
+    manufacturer = models.ForeignKey(  # New field, renamed from 'vendor' for clarity
+        Vendor,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='equipment_manufactured'
     )
     is_active = models.BooleanField(default=True)
 

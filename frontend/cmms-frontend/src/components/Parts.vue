@@ -32,7 +32,7 @@
           <th>Status</th>
           <th>Equipment</th>
           <th>Suppliers</th>
-          <th>Action</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -43,7 +43,10 @@
           <td>{{ part.status }}</td>
           <td>{{ part.equipment_details && part.equipment_details.length ? part.equipment_details.map(e => e.name).join(', ') : 'None' }}</td>
           <td>{{ part.supplier_details && part.supplier_details.length ? part.supplier_details.map(v => v.name).join(', ') : 'None' }}</td>
-          <td><button @click="editPart(part)">Edit</button></td>
+          <td>
+            <button @click="editPart(part)">Edit</button>
+            <button @click="deletePart(part.id)" class="delete-btn">Delete</button>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -83,6 +86,13 @@
   }
   button:hover {
     background-color: #2c3e50;
+  }
+  .delete-btn {
+    background-color: #e74c3c;
+    margin-left: 5px;
+  }
+  .delete-btn:hover {
+    background-color: #c0392b;
   }
   .error {
     color: red;
@@ -215,6 +225,21 @@ export default {
         } else {
           console.error('Error saving part:', error)
           this.errorMessage = 'Failed to save part. Please try again.'
+        }
+      }
+    },
+    async deletePart(partId) {
+      if (confirm('Are you sure you want to delete this part?')) {
+        try {
+          await this.fetchCsrfToken()
+          await axios.delete(`http://localhost:8000/api/parts/${partId}/`, {
+            withCredentials: true,
+            headers: { 'X-CSRFToken': this.csrfToken }
+          })
+          this.fetchParts()
+        } catch (error) {
+          console.error('Error deleting part:', error)
+          this.errorMessage = 'Failed to delete part. Please try again.'
         }
       }
     },

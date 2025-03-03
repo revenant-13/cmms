@@ -13,18 +13,23 @@ class VendorSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'contact_info', 'address', 'is_active']
 
 class EquipmentSerializer(serializers.ModelSerializer):
-    vendor = VendorSerializer(read_only=True)
+    vendor = VendorSerializer(read_only=True)  # Service vendor
+    manufacturer = serializers.PrimaryKeyRelatedField(
+        queryset=Vendor.objects.all(),
+        allow_null=True,
+        required=False
+    )  # Writable manufacturer ID
+    manufacturer_details = VendorSerializer(source='manufacturer', read_only=True)  # Nested manufacturer data
     children = serializers.SerializerMethodField()
 
     class Meta:
         model = Equipment
         fields = [
-            'id', 'name', 'model', 'serial', 'parent', 'location_status',
-            'expected_return_date', 'vendor', 'is_active', 'children'
+            'id', 'name', 'model', 'serial', 'description', 'parent', 'location_status',
+            'expected_return_date', 'vendor', 'manufacturer', 'manufacturer_details', 'is_active', 'children'
         ]
 
     def get_children(self, obj):
-        # Recursively serialize child equipment
         children = obj.get_children()
         return EquipmentSerializer(children, many=True).data
 

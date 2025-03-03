@@ -9,8 +9,8 @@ class VendorAdmin(admin.ModelAdmin):
 
 @admin.register(Equipment)
 class EquipmentAdmin(admin.ModelAdmin):
-    list_display = ('name', 'model', 'serial', 'location_status', 'is_active')
-    list_filter = ('location_status', 'is_active')
+    list_display = ('name', 'model', 'serial', 'location_status', 'manufacturer', 'is_active')
+    list_filter = ('location_status', 'is_active', 'manufacturer')
 
 @admin.register(Part)
 class PartAdmin(admin.ModelAdmin):

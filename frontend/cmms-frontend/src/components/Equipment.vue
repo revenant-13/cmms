@@ -11,6 +11,7 @@
         <input v-model="newEquipment.name" placeholder="Name" required id="name" name="name" />
         <input v-model="newEquipment.model" placeholder="Model" id="model" name="model" />
         <input v-model="newEquipment.serial" placeholder="Serial Number" id="serial" name="serial" />
+        <textarea v-model="newEquipment.description" placeholder="Description"></textarea>
         <select v-model="newEquipment.location_status" required id="location_status" name="location_status">
           <option value="in-house">In-House</option>
           <option value="off-site">Off-Site</option>
@@ -21,18 +22,26 @@
             {{ equip.name }}
           </option>
         </select>
+        <select v-model="newEquipment.manufacturer" id="manufacturer" name="manufacturer">
+          <option value="">No Manufacturer</option>
+          <option v-for="vendor in vendorList" :key="vendor.id" :value="vendor.id">
+            {{ vendor.name }}
+          </option>
+        </select>
         <button type="submit">{{ editingEquipment ? 'Update' : 'Add' }}</button>
         <button v-if="editingEquipment" type="button" @click="cancelEdit">Cancel</button>
       </form>
     </div>
     <ul v-if="filteredEquipment.length">
       <li v-for="item in filteredEquipment" :key="item.id">
-        {{ item.name }} (Model: {{ item.model }}) {{ item.serial }}
+        {{ item.name }} (Model: {{ item.model }}) {{ item.serial }} - {{ item.description || 'No description' }}
         <button @click="editEquipment(item)">Edit</button>
+        <button @click="deleteEquipment(item.id)" class="delete-btn">Delete</button>
         <ul v-if="item.children && item.children.length">
           <li v-for="child in item.children" :key="child.id">
-            {{ child.name }} (Model: {{ child.model }}) {{ child.serial }}
+            {{ child.name }} (Model: {{ child.model }}) {{ child.serial }} - {{ child.description || 'No description' }}
             <button @click="editEquipment(child)">Edit</button>
+            <button @click="deleteEquipment(child.id)" class="delete-btn">Delete</button>
           </li>
         </ul>
       </li>
@@ -53,11 +62,14 @@
     border: 1px solid #ddd;
     border-radius: 5px;
   }
-  .search input, .form input, .form select {
+  .search input, .form input, .form select, .form textarea {
     width: 100%;
     padding: 8px;
     margin: 5px 0;
     box-sizing: border-box;
+  }
+  .form textarea {
+    height: 100px;
   }
   .form button {
     background-color: #42b983;
@@ -92,6 +104,12 @@
   li button:hover {
     background-color: #2c3e50;
   }
+  .delete-btn {
+    background-color: #e74c3c;
+  }
+  .delete-btn:hover {
+    background-color: #c0392b;
+  }
 </style>
 
 <script>
@@ -103,14 +121,17 @@ export default {
     return {
       equipment: [],
       filteredEquipment: [],
+      vendorList: [],
       csrfToken: null,
       searchQuery: '',
       newEquipment: {
         name: '',
         model: '',
         serial: '',
+        description: '',
         location_status: 'in-house',
-        parent: ''
+        parent: '',
+        manufacturer: ''
       },
       editingEquipment: null,
       errorMessage: ''
@@ -136,7 +157,10 @@ export default {
     }
   },
   mounted() {
-    this.fetchCsrfToken().then(() => this.fetchEquipment())
+    this.fetchCsrfToken().then(() => {
+      this.fetchVendors()
+      this.fetchEquipment()
+    })
   },
   methods: {
     async fetchCsrfToken() {
@@ -161,6 +185,18 @@ export default {
           console.error('Error fetching equipment:', error)
         })
     },
+    fetchVendors() {
+      axios.get('http://localhost:8000/api/vendors/', {
+        withCredentials: true,
+        headers: { 'X-CSRFToken': this.csrfToken }
+      })
+        .then(response => {
+          this.vendorList = response.data
+        })
+        .catch(error => {
+          console.error('Error fetching vendors:', error)
+        })
+    },
     filterEquipment() {
       const query = this.searchQuery.toLowerCase()
       if (!query) {
@@ -180,23 +216,17 @@ export default {
       this.filteredEquipment = filterRecursive(this.equipment)
     },
     async saveEquipment() {
-      this.errorMessage = ''
       try {
         await this.fetchCsrfToken()
         const equipmentData = { ...this.newEquipment }
-        console.log('Saving equipment ID:', this.editingEquipment ? this.editingEquipment.id : 'New')
-        console.log('Equipment data:', equipmentData)
-        if (!equipmentData.parent) equipmentData.parent = null
-        
+        console.log('Sending equipment data:', equipmentData)
+        if (!equipmentData.parent) delete equipmentData.parent
+        if (!equipmentData.manufacturer) delete equipmentData.manufacturer
+
         if (this.editingEquipment) {
           await axios.put(`http://localhost:8000/api/equipment/${this.editingEquipment.id}/`, equipmentData, {
             withCredentials: true,
             headers: { 'X-CSRFToken': this.csrfToken }
-          }).catch(error => {
-            if (error.response && error.response.status === 400) {
-              throw { response: error.response }
-            }
-            throw error
           })
         } else {
           await axios.post('http://localhost:8000/api/equipment/', equipmentData, {
@@ -204,27 +234,52 @@ export default {
             headers: { 'X-CSRFToken': this.csrfToken }
           })
         }
-        
         this.fetchEquipment()
         this.resetForm()
       } catch (error) {
-        if (error.response && error.response.status === 400) {
-          this.errorMessage = error.response.data.detail || 'Invalid equipment hierarchy change.'
-        } else {
-          console.error('Unexpected error saving equipment:', error)
-          this.errorMessage = 'Failed to save equipment. Please try again.'
+        console.error('Error saving equipment:', error)
+        if (error.response) console.log('Response data:', error.response.data)
+        this.errorMessage = 'Failed to save equipment. Please try again.'
+      }
+    },
+    async deleteEquipment(equipmentId) {
+      if (confirm('Are you sure you want to delete this equipment? This will also delete its children.')) {
+        try {
+          await this.fetchCsrfToken()
+          await axios.delete(`http://localhost:8000/api/equipment/${equipmentId}/`, {
+            withCredentials: true,
+            headers: { 'X-CSRFToken': this.csrfToken }
+          })
+          this.fetchEquipment()
+        } catch (error) {
+          console.error('Error deleting equipment:', error)
+          this.errorMessage = 'Failed to delete equipment. Please try again.'
         }
       }
     },
     editEquipment(item) {
       console.log('Editing item:', item)
-      console.log('Parent:', item.parent)
       this.editingEquipment = item
-      this.newEquipment = { ...item, parent: item.parent || '' }
-      console.log('newEquipment.parent:', this.newEquipment.parent)
+      this.newEquipment = {
+        name: item.name,
+        model: item.model,
+        serial: item.serial,
+        description: item.description || '',
+        location_status: item.location_status,
+        parent: item.parent ? item.parent.id : '',
+        manufacturer: item.manufacturer ? item.manufacturer.id : ''
+      }
     },
     resetForm() {
-      this.newEquipment = { name: '', model: '', serial: '', location_status: 'in-house', parent: '' }
+      this.newEquipment = { 
+        name: '', 
+        model: '', 
+        serial: '', 
+        description: '', 
+        location_status: 'in-house', 
+        parent: '', 
+        manufacturer: '' 
+      }
       this.editingEquipment = null
       this.errorMessage = ''
     },
