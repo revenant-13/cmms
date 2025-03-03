@@ -41,7 +41,7 @@ class EquipmentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         instance = serializer.save()
-        instance.rebuild()  # Rebuild MPTT tree after update
+        Equipment.objects.rebuild()  # Correctly rebuild the MPTT tree
 
 class PartListCreateView(generics.ListCreateAPIView):
     queryset = Part.objects.filter(is_active=True)

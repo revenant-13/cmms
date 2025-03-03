@@ -1,48 +1,23 @@
 <template>
   <div class="equipment">
     <h1>Equipment Hierarchy</h1>
-    <div class="filters">
-      <input v-model="searchQuery" placeholder="Search by Name" @input="filterEquipment" />
-      <select v-model="filterLocation" @change="filterEquipment">
-        <option value="">All Locations</option>
-        <option value="in-house">In-House</option>
-        <option value="off-site">Off-Site</option>
-      </select>
-      <select v-model="filterManufacturer" @change="filterEquipment">
-        <option value="">All Manufacturers</option>
-        <option v-for="vendor in vendorList" :key="vendor.id" :value="vendor.id">
-          {{ vendor.name }}
-        </option>
-      </select>
-    </div>
-    <div class="form">
-      <h2>{{ editingEquipment ? 'Edit Equipment' : 'Add New Equipment' }}</h2>
-      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
-      <form @submit.prevent="saveEquipment">
-        <input v-model="newEquipment.name" placeholder="Name" required id="name" name="name" />
-        <input v-model="newEquipment.model" placeholder="Model" id="model" name="model" />
-        <input v-model="newEquipment.serial" placeholder="Serial Number" id="serial" name="serial" />
-        <textarea v-model="newEquipment.description" placeholder="Description"></textarea>
-        <select v-model="newEquipment.location_status" required id="location_status" name="location_status">
-          <option value="in-house">In-House</option>
-          <option value="off-site">Off-Site</option>
-        </select>
-        <select v-model="newEquipment.parent" id="parent" name="parent">
-          <option value="">No Parent</option>
-          <option v-for="equip in flattenedEquipment" :key="equip.id" :value="equip.id">
-            {{ equip.name }}
-          </option>
-        </select>
-        <select v-model="newEquipment.manufacturer" id="manufacturer" name="manufacturer">
-          <option value="">No Manufacturer</option>
-          <option v-for="vendor in vendorList" :key="vendor.id" :value="vendor.id">
-            {{ vendor.name }}
-          </option>
-        </select>
-        <button type="submit">{{ editingEquipment ? 'Update' : 'Add' }}</button>
-        <button v-if="editingEquipment" type="button" @click="cancelEdit">Cancel</button>
-      </form>
-    </div>
+    <filter-controls
+      v-model:search-query="searchQuery"
+      v-model:filter-location="filterLocation"
+      v-model:filter-manufacturer="filterManufacturer"
+      :vendors="vendorList"
+      @update:search-query="filterEquipment"
+      @update:filter-location="filterEquipment"
+      @update:filter-manufacturer="filterEquipment"
+    />
+    <equipment-form
+      :equipment="editingEquipment"
+      :equipment-list="flattenedEquipment"
+      :vendor-list="vendorList"
+      :error="errorMessage"
+      @save="saveEquipment"
+      @cancel="cancelEdit"
+    />
     <ul v-if="filteredEquipment.length">
       <equipment-node v-for="item in filteredEquipment" :key="item.id" :item="item" @edit="editEquipment" @delete="deleteEquipment" />
     </ul>
@@ -56,45 +31,6 @@
   margin: 0 auto;
   padding: 20px;
 }
-.filters {
-  margin-bottom: 20px;
-  display: flex;
-  gap: 10px;
-}
-.filters input, .filters select {
-  padding: 8px;
-  width: 200px;
-}
-.form {
-  margin-bottom: 20px;
-  padding: 15px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-}
-input, select, textarea, button {
-  width: 100%;
-  padding: 8px;
-  margin: 5px 0;
-  box-sizing: border-box;
-}
-textarea {
-  height: 100px;
-}
-button {
-  background-color: #42b983;
-  color: white;
-  border: none;
-  padding: 8px 15px;
-  margin: 5px 5px 0 0;
-  cursor: pointer;
-}
-button:hover {
-  background-color: #2c3e50;
-}
-.error {
-  color: red;
-  margin-bottom: 10px;
-}
 ul {
   list-style-type: none;
   padding-left: 20px;
@@ -105,14 +41,18 @@ li {
 </style>
 
 <script>
-import axios from 'axios'
 import { reactive } from 'vue'
 import EquipmentNode from './EquipmentNode.vue'
+import FilterControls from './FilterControls.vue'
+import EquipmentForm from './EquipmentForm.vue'
+import { fetchCsrfToken, fetchData, saveData, deleteData } from '../utils/api.js'
 
 export default {
   name: 'EquipmentPage',
   components: {
-    EquipmentNode
+    EquipmentNode,
+    FilterControls,
+    EquipmentForm
   },
   setup() {
     const state = reactive({
@@ -165,50 +105,36 @@ export default {
   },
   methods: {
     async fetchCsrfToken() {
+      this.csrfToken = await fetchCsrfToken()
+    },
+    async fetchEquipment() {
       try {
-        await axios.get('http://localhost:8000/api/equipment/', { withCredentials: true })
-        this.csrfToken = this.getCsrfToken()
+        const data = await fetchData('equipment', this.csrfToken)
+        this.equipment = data.filter(item => item.is_active)
+        this.filteredEquipment = this.equipment.filter(item => !item.parent)
+        console.log('Fetched equipment:', this.equipment)
+        console.log('Initial filteredEquipment:', this.filteredEquipment)
+        console.log('Initial filteredEquipment children check:', this.filteredEquipment.map(item => ({
+          id: item.id,
+          name: item.name,
+          children: item.children ? item.children.map(child => ({
+            id: child.id,
+            name: child.name,
+            parent: child.parent,
+            children: child.children ? child.children.length : 0
+          })) : []
+        })))
+        this.filterEquipment()
       } catch (error) {
-        console.error('Error fetching CSRF token:', error)
+        // Error logged in fetchData
       }
     },
-    fetchEquipment() {
-      axios.get('http://localhost:8000/api/equipment/', {
-        withCredentials: true,
-        headers: { 'X-CSRFToken': this.csrfToken }
-      })
-        .then(response => {
-          console.log('Fetched equipment:', response.data)
-          this.equipment = response.data.filter(item => item.is_active)
-          this.filteredEquipment = this.equipment.filter(item => !item.parent)
-          console.log('Initial filteredEquipment:', this.filteredEquipment)
-          console.log('Initial filteredEquipment children check:', this.filteredEquipment.map(item => ({
-            id: item.id,
-            name: item.name,
-            children: item.children ? item.children.map(child => ({
-              id: child.id,
-              name: child.name,
-              parent: child.parent,
-              children: child.children ? child.children.length : 0
-            })) : []
-          })))
-          this.filterEquipment()
-        })
-        .catch(error => {
-          console.error('Error fetching equipment:', error)
-        })
-    },
-    fetchVendors() {
-      axios.get('http://localhost:8000/api/vendors/', {
-        withCredentials: true,
-        headers: { 'X-CSRFToken': this.csrfToken }
-      })
-        .then(response => {
-          this.vendorList = response.data
-        })
-        .catch(error => {
-          console.error('Error fetching vendors:', error)
-        })
+    async fetchVendors() {
+      try {
+        this.vendorList = await fetchData('vendors', this.csrfToken)
+      } catch (error) {
+        // Error logged in fetchData
+      }
     },
     filterEquipment() {
       const query = this.searchQuery.toLowerCase()
@@ -233,30 +159,20 @@ export default {
       this.filteredEquipment = filterRecursive(this.equipment.filter(item => !item.parent))
       console.log('Filtered equipment after filter:', this.filteredEquipment)
     },
-    async saveEquipment() {
+    async saveEquipment(equipmentData) {
       try {
         await this.fetchCsrfToken()
-        const equipmentData = { ...this.newEquipment }
-        console.log('Sending equipment data:', equipmentData)
-        let response
-        if (this.editingEquipment) {
-          response = await axios.put(`http://localhost:8000/api/equipment/${this.editingEquipment.id}/`, equipmentData, {
-            withCredentials: true,
-            headers: { 'X-CSRFToken': this.csrfToken }
-          })
-          console.log('PUT response:', response.data)
-        } else {
-          response = await axios.post('http://localhost:8000/api/equipment/', equipmentData, {
-            withCredentials: true,
-            headers: { 'X-CSRFToken': this.csrfToken }
-          })
-          console.log('POST response:', response.data)
-        }
+        console.log('saveEquipment called, editingEquipment:', this.editingEquipment)
+        const isEdit = !!this.editingEquipment && this.editingEquipment.id
+        console.log('isEdit:', isEdit)
+        const dataToSend = isEdit ? { ...equipmentData, id: this.editingEquipment.id } : { ...equipmentData, id: undefined }
+        console.log('Sending equipment data:', JSON.stringify(dataToSend))
+        const response = await saveData('equipment', dataToSend, this.csrfToken, isEdit)
+        console.log('Response:', response)
         this.fetchEquipment()
         this.resetForm()
       } catch (error) {
-        console.error('Error saving equipment:', error)
-        if (error.response) console.log('Response data:', error.response.data)
+        console.error('Save equipment failed:', error)
         this.errorMessage = 'Failed to save equipment. Please try again.'
       }
     },
@@ -264,31 +180,23 @@ export default {
       if (confirm('Are you sure you want to delete this equipment? This will also delete its children.')) {
         try {
           await this.fetchCsrfToken()
-          await axios.delete(`http://localhost:8000/api/equipment/${equipmentId}/`, {
-            withCredentials: true,
-            headers: { 'X-CSRFToken': this.csrfToken }
-          })
+          await deleteData('equipment', equipmentId, this.csrfToken)
           this.fetchEquipment()
         } catch (error) {
-          console.error('Error deleting equipment:', error)
           this.errorMessage = 'Failed to delete equipment. Please try again.'
         }
       }
     },
     editEquipment(item) {
       console.log('Editing item:', item)
-      this.editingEquipment = item
-      this.newEquipment = {
-        name: item.name,
-        model: item.model,
-        serial: item.serial,
-        description: item.description || '',
-        location_status: item.location_status,
-        parent: item.parent ? item.parent.id : '',
-        manufacturer: item.manufacturer ? item.manufacturer.id : ''
-      }
+      this.editingEquipment = { ...item }
+      console.log('After editEquipment, editingEquipment set to:', this.editingEquipment)
+    },
+    cancelEdit() {
+      this.resetForm()
     },
     resetForm() {
+      console.log('Resetting form')
       this.newEquipment = { 
         name: '', 
         model: '', 
@@ -300,21 +208,6 @@ export default {
       }
       this.editingEquipment = null
       this.errorMessage = ''
-    },
-    getCsrfToken() {
-      const name = 'csrftoken'
-      let cookieValue = null
-      if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';')
-        for (let i = 0; i < cookies.length; i++) {
-          const cookie = cookies[i].trim()
-          if (cookie.substring(0, name.length + 1) === (name + '=')) {
-            cookieValue = decodeURIComponent(cookie.substring(name.length + 1))
-            break
-          }
-        }
-      }
-      return cookieValue
     }
   }
 }
