@@ -13,7 +13,6 @@
         <input v-model="newEquipment.serial" placeholder="Serial Number" id="serial" name="serial" />
         <select v-model="newEquipment.location_status" required id="location_status" name="location_status">
           <option value="in-house">In-House</option>
-          <option value="on-site">On-Site</option>
           <option value="off-site">Off-Site</option>
         </select>
         <select v-model="newEquipment.parent" id="parent" name="parent">

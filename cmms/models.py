@@ -5,7 +5,6 @@ from dateutil.relativedelta import relativedelta  # For monthly/yearly increment
 from django.contrib.auth.models import User
 
 # Choices for various fields
-
 PRIORITY_CHOICES = [
     ('low', 'Low'),
     ('medium', 'Medium'),
@@ -24,10 +23,9 @@ TASK_TYPE_CHOICES = [
     ('calibration', 'Calibration'),
 ]
 
-LOCATION_STATUS_CHOICES = [
+EQUIPMENT_LOCATION_STATUS = [  # Simplified: Removed 'on-site'
     ('in-house', 'In-House'),
-    ('sent-off', 'Sent Off'),
-    ('returned', 'Returned'),
+    ('off-site', 'Off-Site'),
 ]
 
 SCHEDULE_STATUS_CHOICES = [
@@ -57,7 +55,7 @@ class Equipment(MPTTModel):
     )
     location_status = models.CharField(
         max_length=50,
-        choices=LOCATION_STATUS_CHOICES,
+        choices=EQUIPMENT_LOCATION_STATUS,  # Updated name to match convention
         default='in-house'
     )
     expected_return_date = models.DateField(null=True, blank=True)
@@ -144,34 +142,8 @@ class Task(models.Model):
         elif self.frequency == 'yearly':
             return last_date + relativedelta(years=1)
         return last_date  # Fallback
-    
+
 class Schedule(models.Model):
-    task = models.ForeignKey(
-        Task,
-        on_delete=models.CASCADE,
-        related_name='schedules'
-    )
-    due_date = models.DateField()
-    completion_date = models.DateField(null=True, blank=True)
-    status = models.CharField(
-        max_length=50,
-        choices=SCHEDULE_STATUS_CHOICES,
-        default='pending'
-    )
-    history_log = models.TextField(blank=True)
-
-    def __str__(self):
-        return f"Schedule for {self.task} due on {self.due_date}"
-
-    @property
-    def is_overdue(self):
-        if self.status == 'pending' and self.due_date < timezone.now().date():
-            return True
-        return False
-
-def save(self, *args, **kwargs):
-    super().save(*args, **kwargs)
-        
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
@@ -201,9 +173,10 @@ def save(self, *args, **kwargs):
             # If completing a schedule, set completion date and create next one
             self.completion_date = timezone.now().date()
             next_due_date = self.task.calculate_next_due_date(self.due_date)
-            Schedule.objects.create(
-                task=self.task,
-                due_date=next_due_date,
-                status='pending'
-            )
+            if next_due_date:
+                Schedule.objects.create(
+                    task=self.task,
+                    due_date=next_due_date,
+                    status='pending'
+                )
         super().save(*args, **kwargs)
