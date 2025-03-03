@@ -25,7 +25,7 @@ class EquipmentSerializer(serializers.ModelSerializer):
         allow_null=True,
         required=False
     )
-    parent_details = RecursiveField(read_only=True)  # Use our custom RecursiveField
+    parent_details = RecursiveField(read_only=True)
     manufacturer = serializers.PrimaryKeyRelatedField(
         queryset=Vendor.objects.all(),
         allow_null=True,
@@ -33,18 +33,24 @@ class EquipmentSerializer(serializers.ModelSerializer):
     )
     manufacturer_details = VendorSerializer(source='manufacturer', read_only=True)
     children = serializers.SerializerMethodField()
+    parts = serializers.SerializerMethodField()
 
     class Meta:
         model = Equipment
         fields = [
             'id', 'name', 'model', 'serial', 'description', 'parent', 'parent_details',
             'location_status', 'expected_return_date', 'vendor', 'manufacturer',
-            'manufacturer_details', 'is_active', 'children'
+            'manufacturer_details', 'is_active', 'children', 'parts'
         ]
 
     def get_children(self, obj):
         children = obj.get_children()
         return EquipmentSerializer(children, many=True).data
+
+    def get_parts(self, obj):
+        parts = obj.parts.all()
+        from .serializers import PartSerializer
+        return PartSerializer(parts, many=True).data
 
 class PartSerializer(serializers.ModelSerializer):
     equipment = serializers.PrimaryKeyRelatedField(
@@ -53,7 +59,7 @@ class PartSerializer(serializers.ModelSerializer):
         allow_null=True,
         required=False
     )
-    equipment_details = EquipmentSerializer(source='equipment', many=True, read_only=True)
+    # Removed equipment_details to break recursion; use IDs instead
     suppliers = serializers.PrimaryKeyRelatedField(
         queryset=Vendor.objects.all(),
         many=True,
@@ -61,11 +67,12 @@ class PartSerializer(serializers.ModelSerializer):
         required=False
     )
     supplier_details = VendorSerializer(source='suppliers', many=True, read_only=True)
+
     class Meta:
         model = Part
         fields = [
             'id', 'part_number', 'part_name', 'description', 'status', 'last_updated',
-            'equipment', 'equipment_details', 'suppliers', 'supplier_details', 'is_active'
+            'equipment', 'suppliers', 'supplier_details', 'is_active'
         ]
 
 class TaskSerializer(serializers.ModelSerializer):

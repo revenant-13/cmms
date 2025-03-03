@@ -2,9 +2,14 @@
   <div class="equipment">
     <div class="header">
       <h1>Equipment Hierarchy</h1>
-      <button @click="toggleForm" class="toggle-btn">
-        {{ showForm ? 'Hide Form' : 'Add Equipment' }}
-      </button>
+      <div class="header-buttons">
+        <button @click="toggleForm" class="toggle-btn">
+          {{ showForm ? 'Hide Form' : 'Add Equipment' }}
+        </button>
+        <button @click="toggleView" class="view-btn">
+          {{ showHierarchy ? 'View Table' : 'View Hierarchy' }}
+        </button>
+      </div>
     </div>
     <equipment-form
       v-if="showForm"
@@ -26,30 +31,35 @@
         @update:filter-manufacturer="filterEquipment"
       />
     </div>
-    <table v-if="filteredEquipment.length" class="equipment-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Model</th>
-          <th>Serial</th>
-          <th>Location</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="item in filteredEquipment" :key="item.id" @mouseenter="hoverItem = item.id" @mouseleave="hoverItem = null" :class="{ 'hover': hoverItem === item.id }">
-          <td>{{ item.name }}</td>
-          <td>{{ item.model }}</td>
-          <td>{{ item.serial }}</td>
-          <td>{{ item.location_status }}</td>
-          <td>
-            <button @click="editEquipment(item)">Edit</button>
-            <button @click="deleteEquipment(item.id)" class="delete-btn">Delete</button>
-            <button @click="showDetails(item)">Details</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-if="filteredEquipment.length" class="equipment-container">
+      <table v-if="!showHierarchy" class="equipment-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Model</th>
+            <th>Serial</th>
+            <th>Location</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in filteredEquipment" :key="item.id" @mouseenter="hoverItem = item.id" @mouseleave="hoverItem = null" :class="{ 'hover': hoverItem === item.id }">
+            <td>{{ item.name }}</td>
+            <td>{{ item.model }}</td>
+            <td>{{ item.serial }}</td>
+            <td>{{ item.location_status }}</td>
+            <td>
+              <button @click="editEquipment(item)">Edit</button>
+              <button @click="deleteEquipment(item.id)" class="delete-btn">Delete</button>
+              <button @click="showDetails(item)">Details</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <ul v-else class="hierarchy-list">
+        <equipment-node v-for="item in filteredEquipment" :key="item.id" :item="item" @edit="editEquipment" @delete="deleteEquipment" />
+      </ul>
+    </div>
     <p v-else>No equipment found</p>
 
     <!-- Details Modal -->
@@ -88,17 +98,21 @@
   font-size: 1.5em;
   text-align: center;
 }
-.toggle-btn {
+.header-buttons {
+  position: absolute;
+  right: 0;
+  display: flex;
+  gap: 10px;
+}
+.toggle-btn, .view-btn {
   background-color: #42b983;
   color: white;
   border: none;
   padding: 6px 12px;
   cursor: pointer;
   border-radius: 4px;
-  position: absolute;
-  right: 0;
 }
-.toggle-btn:hover {
+.toggle-btn:hover, .view-btn:hover {
   background-color: #2c3e50;
 }
 .controls {
@@ -106,10 +120,12 @@
   justify-content: center;
   margin-bottom: 10px;
 }
+.equipment-container {
+  margin-top: 10px;
+}
 .equipment-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
 }
 .equipment-table th, .equipment-table td {
   padding: 6px 10px;
@@ -146,6 +162,10 @@
 }
 .equipment-table .delete-btn:hover {
   background-color: #c0392b;
+}
+.hierarchy-list {
+  list-style-type: none;
+  padding-left: 0;
 }
 .modal-overlay {
   position: fixed;
@@ -188,6 +208,7 @@
 
 <script>
 import { reactive } from 'vue'
+import EquipmentNode from './EquipmentNode.vue'
 import FilterControls from './FilterControls.vue'
 import EquipmentForm from './EquipmentForm.vue'
 import { fetchCsrfToken, fetchData, saveData, deleteData } from '../utils/api.js'
@@ -195,6 +216,7 @@ import { fetchCsrfToken, fetchData, saveData, deleteData } from '../utils/api.js
 export default {
   name: 'EquipmentPage',
   components: {
+    EquipmentNode,
     FilterControls,
     EquipmentForm
   },
@@ -221,7 +243,8 @@ export default {
       showForm: false,
       showDetailsModal: false,
       selectedEquipment: null,
-      hoverItem: null
+      hoverItem: null,
+      showHierarchy: false // New toggle for view mode
     })
 
     return state
@@ -375,6 +398,9 @@ export default {
     hideDetails() {
       this.showDetailsModal = false
       this.selectedEquipment = null
+    },
+    toggleView() {
+      this.showHierarchy = !this.showHierarchy
     }
   }
 }
