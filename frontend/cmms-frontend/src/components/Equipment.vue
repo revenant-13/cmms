@@ -26,10 +26,47 @@
         @update:filter-manufacturer="filterEquipment"
       />
     </div>
-    <ul v-if="filteredEquipment.length" class="equipment-list">
-      <equipment-node v-for="item in filteredEquipment" :key="item.id" :item="item" @edit="editEquipment" @delete="deleteEquipment" />
-    </ul>
+    <table v-if="filteredEquipment.length" class="equipment-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Model</th>
+          <th>Serial</th>
+          <th>Location</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="item in filteredEquipment" :key="item.id" @mouseenter="hoverItem = item.id" @mouseleave="hoverItem = null" :class="{ 'hover': hoverItem === item.id }">
+          <td>{{ item.name }}</td>
+          <td>{{ item.model }}</td>
+          <td>{{ item.serial }}</td>
+          <td>{{ item.location_status }}</td>
+          <td>
+            <button @click="editEquipment(item)">Edit</button>
+            <button @click="deleteEquipment(item.id)" class="delete-btn">Delete</button>
+            <button @click="showDetails(item)">Details</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
     <p v-else>No equipment found</p>
+
+    <!-- Details Modal -->
+    <div v-if="showDetailsModal" class="modal-overlay" @click="hideDetails">
+      <div class="modal-content" @click.stop>
+        <h2>{{ selectedEquipment.name }} Details</h2>
+        <p><strong>ID:</strong> {{ selectedEquipment.id }}</p>
+        <p><strong>Name:</strong> {{ selectedEquipment.name }}</p>
+        <p><strong>Model:</strong> {{ selectedEquipment.model }}</p>
+        <p><strong>Serial:</strong> {{ selectedEquipment.serial }}</p>
+        <p><strong>Location:</strong> {{ selectedEquipment.location_status }}</p>
+        <p><strong>Description:</strong> {{ selectedEquipment.description || 'N/A' }}</p>
+        <p><strong>Manufacturer:</strong> {{ selectedEquipment.manufacturer_details ? selectedEquipment.manufacturer_details.name : 'N/A' }}</p>
+        <p><strong>Parent:</strong> {{ selectedEquipment.parent ? selectedEquipment.parent : 'None' }}</p>
+        <button @click="hideDetails" class="close-btn">Close</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -41,15 +78,15 @@
 }
 .header {
   display: flex;
-  justify-content: center; /* Center the entire header content */
+  justify-content: center;
   align-items: center;
   margin-bottom: 10px;
-  position: relative; /* Allow absolute positioning of button */
+  position: relative;
 }
 .header h1 {
   margin: 0;
   font-size: 1.5em;
-  text-align: center; /* Ensure text is centered */
+  text-align: center;
 }
 .toggle-btn {
   background-color: #42b983;
@@ -58,7 +95,7 @@
   padding: 6px 12px;
   cursor: pointer;
   border-radius: 4px;
-  position: absolute; /* Position button on the right */
+  position: absolute;
   right: 0;
 }
 .toggle-btn:hover {
@@ -66,21 +103,91 @@
 }
 .controls {
   display: flex;
-  justify-content: center; /* Center the filter controls */
+  justify-content: center;
   margin-bottom: 10px;
 }
-.equipment-list {
-  list-style-type: none;
-  padding-left: 10px;
+.equipment-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
 }
-.equipment-list li {
-  margin: 2px 0;
+.equipment-table th, .equipment-table td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+.equipment-table th {
+  background-color: #f4f4f4;
+  font-weight: bold;
+}
+.equipment-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+.equipment-table tr.hover {
+  background-color: #f1f1f1;
+}
+.equipment-table button {
+  padding: 4px 8px;
+  margin-right: 5px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.equipment-table button:first-child {
+  background-color: #42b983;
+  color: white;
+}
+.equipment-table button:first-child:hover {
+  background-color: #2c3e50;
+}
+.equipment-table .delete-btn {
+  background-color: #e74c3c;
+  color: white;
+}
+.equipment-table .delete-btn:hover {
+  background-color: #c0392b;
+}
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+.modal-content h2 {
+  margin-top: 0;
+}
+.modal-content p {
+  margin: 5px 0;
+}
+.close-btn {
+  background-color: #42b983;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-top: 10px;
+}
+.close-btn:hover {
+  background-color: #2c3e50;
 }
 </style>
 
 <script>
 import { reactive } from 'vue'
-import EquipmentNode from './EquipmentNode.vue'
 import FilterControls from './FilterControls.vue'
 import EquipmentForm from './EquipmentForm.vue'
 import { fetchCsrfToken, fetchData, saveData, deleteData } from '../utils/api.js'
@@ -88,7 +195,6 @@ import { fetchCsrfToken, fetchData, saveData, deleteData } from '../utils/api.js
 export default {
   name: 'EquipmentPage',
   components: {
-    EquipmentNode,
     FilterControls,
     EquipmentForm
   },
@@ -112,7 +218,10 @@ export default {
       },
       editingEquipment: null,
       errorMessage: '',
-      showForm: false
+      showForm: false,
+      showDetailsModal: false,
+      selectedEquipment: null,
+      hoverItem: null
     })
 
     return state
@@ -258,6 +367,14 @@ export default {
       } else if (!this.editingEquipment) {
         this.resetForm()
       }
+    },
+    showDetails(item) {
+      this.selectedEquipment = item
+      this.showDetailsModal = true
+    },
+    hideDetails() {
+      this.showDetailsModal = false
+      this.selectedEquipment = null
     }
   }
 }
