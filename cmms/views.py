@@ -1,9 +1,17 @@
+from django.contrib.auth.models import User
 from rest_framework import generics, permissions
+from rest_framework.exceptions import ValidationError  # Add this
+from mptt.exceptions import InvalidMove  # Add this
 from .models import Vendor, Equipment, Part, Task, Schedule
 from .serializers import (
     VendorSerializer, EquipmentSerializer, PartSerializer,
-    TaskSerializer, ScheduleSerializer
+    TaskSerializer, ScheduleSerializer, UserSerializer
 )
+
+class UserListView(generics.ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.DjangoModelPermissions]
 
 class VendorListCreateView(generics.ListCreateAPIView):
     queryset = Vendor.objects.filter(is_active=True)
@@ -21,9 +29,15 @@ class EquipmentListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.DjangoModelPermissions]
 
 class EquipmentDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Equipment.objects.all()
+    queryset = Equipment.objects.filter(is_active=True)
     serializer_class = EquipmentSerializer
     permission_classes = [permissions.DjangoModelPermissions]
+
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except InvalidMove:
+            raise ValidationError({"detail": "Cannot set this equipment as a child of its own descendant."})
 
 class PartListCreateView(generics.ListCreateAPIView):
     queryset = Part.objects.filter(is_active=True)

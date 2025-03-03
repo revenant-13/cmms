@@ -1,28 +1,33 @@
 <template>
   <div class="dashboard">
     <h1>Dashboard</h1>
+    <div class="filter">
+      <label>Filter by Date Range:</label>
+      <input type="date" v-model="startDate" @change="applyFilter" />
+      <input type="date" v-model="endDate" @change="applyFilter" />
+    </div>
     <div class="summary">
       <div class="card">
         <h2>Planned Tasks</h2>
-        <p>{{ plannedTasks.length }}</p>
+        <p>{{ filteredPlannedTasks.length }}</p>
         <ul>
-          <li v-for="task in plannedTasks" :key="task.id">{{ task.description }}</li>
+          <li v-for="task in filteredPlannedTasks" :key="task.id">{{ task.description }}</li>
         </ul>
       </div>
       <div class="card">
         <h2>Due Schedules</h2>
-        <p>{{ dueSchedules.length }}</p>
+        <p>{{ filteredDueSchedules.length }}</p>
         <ul>
-          <li v-for="schedule in dueSchedules" :key="schedule.id">
+          <li v-for="schedule in filteredDueSchedules" :key="schedule.id">
             {{ schedule.task.description }} (Due: {{ schedule.due_date }})
           </li>
         </ul>
       </div>
       <div class="card">
         <h2>Completed Tasks</h2>
-        <p>{{ completedSchedules.length }}</p>
+        <p>{{ filteredCompletedSchedules.length }}</p>
         <ul>
-          <li v-for="schedule in completedSchedules" :key="schedule.id">
+          <li v-for="schedule in filteredCompletedSchedules" :key="schedule.id">
             {{ schedule.task.description }} (Completed: {{ schedule.completion_date }})
           </li>
         </ul>
@@ -36,6 +41,19 @@
     max-width: 1000px;
     margin: 0 auto;
     padding: 20px;
+  }
+  .filter {
+    margin-bottom: 20px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+  }
+  .filter label {
+    margin-right: 10px;
+  }
+  .filter input {
+    margin-right: 10px;
+    padding: 5px;
   }
   .summary {
     display: flex;
@@ -67,18 +85,30 @@ export default {
     return {
       tasks: [],
       schedules: [],
-      csrfToken: null
+      csrfToken: null,
+      startDate: '',
+      endDate: ''
     }
   },
   computed: {
-    plannedTasks() {
-      return this.tasks.filter(task => !this.schedules.some(s => s.task.id === task.id && s.status === 'completed'))
+    filteredPlannedTasks() {
+      return this.tasks.filter(task => {
+        const hasSchedule = this.schedules.some(s => s.task.id === task.id && s.status === 'completed')
+        if (!hasSchedule) {
+          return this.isWithinDateRange(task.start_date)
+        }
+        return false
+      })
     },
-    dueSchedules() {
-      return this.schedules.filter(s => s.status === 'pending' && new Date(s.due_date) <= new Date())
+    filteredDueSchedules() {
+      return this.schedules.filter(schedule => {
+        return schedule.status === 'pending' && this.isWithinDateRange(schedule.due_date)
+      })
     },
-    completedSchedules() {
-      return this.schedules.filter(s => s.status === 'completed')
+    filteredCompletedSchedules() {
+      return this.schedules.filter(schedule => {
+        return schedule.status === 'completed' && this.isWithinDateRange(schedule.completion_date || schedule.due_date)
+      })
     }
   },
   mounted() {
@@ -134,6 +164,20 @@ export default {
         }
       }
       return cookieValue
+    },
+    isWithinDateRange(date) {
+      if (!this.startDate && !this.endDate) return true
+      const taskDate = new Date(date)
+      const start = this.startDate ? new Date(this.startDate) : null
+      const end = this.endDate ? new Date(this.endDate) : null
+      if (start && end) return taskDate >= start && taskDate <= end
+      if (start) return taskDate >= start
+      if (end) return taskDate <= end
+      return true
+    },
+    applyFilter() {
+      // Trigger re-computation of filtered lists
+      this.$forceUpdate()
     }
   }
 }

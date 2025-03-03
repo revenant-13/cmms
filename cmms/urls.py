@@ -4,7 +4,8 @@ from .views import (
     EquipmentListCreateView, EquipmentDetailView,
     PartListCreateView, PartDetailView,
     TaskListCreateView, TaskDetailView,
-    ScheduleListCreateView, ScheduleDetailView
+    ScheduleListCreateView, ScheduleDetailView,
+    UserListView
 )
 
 urlpatterns = [
@@ -18,4 +19,5 @@ urlpatterns = [
     path('tasks/<int:pk>/', TaskDetailView.as_view(), name='task-detail'),
     path('schedules/', ScheduleListCreateView.as_view(), name='schedule-list'),
     path('schedules/<int:pk>/', ScheduleDetailView.as_view(), name='schedule-detail'),
+    path('users/', UserListView.as_view(), name='user-list'),
 ]
